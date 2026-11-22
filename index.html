@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GOLDEN INVESTMENT SPAIN</title>
+<title>My employees deposit</title>
 <style>
 :root{--bg:#f4f6fb;--card:#fff;--text:#14213d;--muted:#5b6478;--accent:#1d4ed8;--line:#dfe4ee;--okbg:#e8f7ee;--okfg:#14532d;--warnbg:#fff4e0;--warnfg:#7a4b00;--badbg:#fdecec;--badfg:#8a1c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#182033;--text:#e8ecf6;--muted:#9aa5bd;--accent:#6b9bff;--line:#2a3550;--okbg:#12301f;--okfg:#9be3b4;--warnbg:#3a2c0f;--warnfg:#ffd27a;--badbg:#3b1717;--badfg:#ffb3b3}}
@@ -36,20 +36,20 @@ dt{color:var(--muted)}dd{margin:0;font-weight:600;text-align:right}
 </head>
 <body>
 <div class="wrap">
-  <h1> Deposit List </h1>
+  <h1>My employees deposit</h1>
   <p class="sub">December profit deposit list</p>
 
   <div class="warn"><strong>⚠ Warning:</strong> If you can’t find your name on the list, it means your deposit is <strong>invalid</strong>.</div>
 
   <div class="card">
-    <label for="q">Search your full name</label>
+    <label for="q">Search your full name or withdrawal code</label>
     <div class="row">
-      <input id="q" type="text" placeholder="e.g. First name and surname" autocomplete="off">
+      <input id="q" type="text" placeholder="Name or withdrawal code" autocomplete="off">
       <button id="go" type="button">Search</button>
     </div>
-    <div id="out"><p class="hint">Type your name and tap Search.</p></div>
+    <div id="out"><p class="hint">Type your name (or withdrawal code) and tap Search.</p></div>
   </div>
-  <p class="foot">Secured</p>
+  <p class="foot">Test version · sample data only</p>
 </div>
 
 <script>
@@ -78,6 +78,27 @@ while(list.length<150){
 // Owner entry
 list.push({name:"Stacy Heaths",gender:"Female",amount:1900000,cur:"£"});
 
+// ---- Private entry: encrypted, opens only with the withdrawal code ----
+var VAULT={s:"iDv8e3Qo88RZS2WLZWoKrw==",iv:"TVbZxxAbn89EY/w4",d:"IZieiowQXlEOLbNUoOyizyeipfwiSS1Ag0Cse7UCfAoPi9UeNHNkzJcm1s2Yh9FQOb6FN2Pw60XR86djW2Fy1Opd+p6g4qvjCXc6ojBX5zdB4oQyfwQur3LAZLCIMdhd/v59iZt2T9F8UmY="};
+function b64(s){return Uint8Array.from(atob(s),function(c){return c.charCodeAt(0)})}
+async function unlock(code){
+  var out=document.getElementById("out");
+  out.innerHTML='<p class="hint">Checking code…</p>';
+  try{
+    var km=await crypto.subtle.importKey("raw",new TextEncoder().encode(code),"PBKDF2",false,["deriveKey"]);
+    var key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(VAULT.s),iterations:200000,hash:"SHA-256"},km,{name:"AES-GCM",length:256},false,["decrypt"]);
+    var buf=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(VAULT.iv)},key,b64(VAULT.d));
+    var p=JSON.parse(new TextDecoder().decode(buf));
+    out.innerHTML='<div class="res"><div class="top">✔ Withdrawal code accepted</div><dl>'+
+      '<div class="r"><dt>Name</dt><dd>'+esc(p.name)+'</dd></div>'+
+      '<div class="r"><dt>Gender</dt><dd>'+esc(p.gender)+'</dd></div>'+
+      '<div class="r"><dt>Profit amount</dt><dd>'+fmt(p.amount,"£")+'</dd></div>'+
+      '<div class="r"><dt>Partner name</dt><dd>'+esc(p.partner)+'</dd></div></dl></div>';
+  }catch(e){
+    out.innerHTML='<div class="bad"><strong>Invalid withdrawal code.</strong><br>Please check the code and try again.</div>';
+  }
+}
+
 // ---- Search (list is never displayed) ----
 function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim()}
 function fmt(n,c){return c+n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",")}
@@ -85,6 +106,7 @@ function esc(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&
 
 function search(){
   var raw=document.getElementById("q").value, q=norm(raw), out=document.getElementById("out");
+  if(/^\d{6,}$/.test(raw.trim())){unlock(raw.trim());return}
   if(q.length<3){out.innerHTML='<p class="hint">Please enter at least 3 characters of your name.</p>';return}
   var hits=list.filter(function(p){return norm(p.name).indexOf(q)!==-1}).slice(0,3);
   if(!hits.length){
